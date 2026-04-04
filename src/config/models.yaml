@@ -1,0 +1,68 @@
+# LLM Router 模型配置
+# 配置 API Keys 和路由规则
+
+models:
+  gpt-4o:
+    provider: openai
+    model: gpt-4o
+    max_tokens: 4096
+    temperature: 0.7
+    routing:
+      keywords:
+        - 代码
+        - 写代码
+        - function
+        - debug
+        - 算法
+        - python
+        - javascript
+      score: 0.9
+
+  gpt-4o-mini:
+    provider: openai
+    model: gpt-4o-mini
+    max_tokens: 4096
+    temperature: 0.7
+    routing:
+      keywords:
+        - 简单
+        - 快速
+        - 小功能
+      score: 0.7
+
+  claude:
+    provider: anthropic
+    model: claude-3-5-sonnet-20241022
+    max_tokens: 4096
+    temperature: 0.7
+    routing:
+      keywords:
+        - 解释
+        - 分析
+        - 为什么
+        - 总结
+        - 摘要
+        - 创意写作
+      score: 0.85
+
+  gemini:
+    provider: google
+    model: gemini-pro
+    max_tokens: 4096
+    temperature: 0.7
+    routing:
+      keywords:
+        - 最新
+        - 实时
+        - 新闻
+        - 今天
+        - 现在
+      score: 0.75
+
+# 默认设置
+defaults:
+  timeout_ms: 60000
+  max_retries: 2
+  default_model: gpt-4o
+  enable_decomposition: true
+  decomposition_threshold: high  # low/medium/high

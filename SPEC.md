@@ -1,0 +1,156 @@
+# LLM Router — 大模型智能路由聚合平台
+
+## 1. Concept & Vision
+
+一个智能路由层：接收用户请求 → 分析意图 → 智能分发到最适合的大模型 → 结果聚合 → 返回给用户。
+
+核心价值：让用户无感知地获得最佳模型组合的能力，同时降低使用成本、提升响应质量。
+
+## 2. Architecture
+
+```
+User Request
+    │
+    ▼
+┌─────────────────┐
+│   API Gateway   │  FastAPI / Express
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│  Task Analyzer │  分析任务类型、复杂度、是否需要拆解
+│  (Analyzer LLM) │
+└────────┬────────┘
+         │
+    ┌────┴────┐
+    │         │
+    ▼         ▼
+┌────────┐  ┌──────────────────┐
+│ 简单   │  │ 复杂任务拆解     │
+│ 路由   │  │ (Decomposer LLM) │
+└───┬────┘  └────────┬─────────┘
+    │                 │
+    ▼                 ▼
+┌─────────────────────────────┐
+│       Model Gateway         │
+│  LiteLLM 统一调用层         │
+│  - OpenAI GPT-4o           │
+│  - Anthropic Claude        │
+│  - Google Gemini           │
+│  - 本地模型 (Ollama)        │
+└────────────┬───────────────┘
+             │
+             ▼
+┌─────────────────────────────┐
+│       Synthesizer          │
+│  结果聚合 + 质量校验         │
+└────────────┬───────────────┘
+             │
+             ▼
+        Final Response
+```
+
+## 3. Routing Strategy
+
+### 规则路由（Phase 1 — 本周完成）
+
+| 任务类型 | 关键词/模式 | 路由目标 |
+|---------|------------|---------|
+| 代码生成/调试 | `写代码`, `debug`, `function`, `class`, `代码` | GPT-4o / Claude |
+| 创意写作 | `写故事`, `写诗`, `创意`, `文案` | GPT-4o |
+| 知识问答/分析 | `解释`, `分析`, `为什么`, `什么是` | Claude |
+| 数学/推理 | `计算`, `推理`, `证明`, `数学` | GPT-4o |
+| 搜索增强 | `最新`, `实时`, `查一下`, `新闻` | Gemini |
+| 长文本总结 | `总结`, `摘要`, `概括` | Claude |
+| 图像相关 | `画`, `图`, `设计` | GPT-4o (Vision) |
+
+### 智能路由（Phase 2 — 待开发）
+- 用 Analyzer LLM 判断任务特征
+- 输出结构化 JSON 包含：任务类型、推荐模型、是否需要拆解、拆解粒度
+
+## 4. Task Decomposition
+
+当任务复杂度高时，自动拆解：
+
+```
+原始任务: "帮我写一个用户注册功能，包括前端表单和后端API"
+     │
+     ▼
+[
+  { "sub_task": "设计数据库表结构", "model": "Claude" },
+  { "sub_task": "编写后端注册API", "model": "GPT-4o" },
+  { "sub_task": "编写前端注册表单", "model": "GPT-4o" }
+]
+     │
+     ▼
+并发执行 → 等待全部完成 → Synthesizer 聚合
+```
+
+## 5. API Design
+
+### POST /v1/chat/completions
+统一入口，兼容 OpenAI 格式
+
+```json
+// Request
+{
+  "messages": [{"role": "user", "content": "帮我写一个Python快速排序"}],
+  "user_id": "user_123"
+}
+
+// Response (流式)
+data: {"model": "gpt-4o", "content": "def quick_sort..."}
+data: {"model": "claude", "content": "..."}
+data: [DONE]
+```
+
+### GET /v1/models
+可用模型列表
+
+### GET /health
+健康检查
+
+## 6. Configuration
+
+模型配置通过 `config/models.yaml` 管理：
+
+```yaml
+models:
+  gpt-4o:
+    provider: openai
+    api_key_env: OPENAI_API_KEY
+    max_tokens: 4096
+    routing_rules:
+      - keywords: ["代码", "写代码", "function", "debug"]
+        score: 0.9
+
+  claude:
+    provider: anthropic
+    api_key_env: ANTHROPIC_API_KEY
+    max_tokens: 4096
+    routing_rules:
+      - keywords: ["解释", "分析", "为什么"]
+        score: 0.85
+```
+
+## 7. 本周可交付（Phase 1）
+
+- [x] 项目结构搭建
+- [x] SPEC.md 编写
+- [ ] `router/rule_based_router.ts` — 规则路由核心
+- [ ] `models/liteLLM_gateway.ts` — 模型网关封装
+- [ ] `tasks/task_analyzer.ts` — 任务类型分析
+- [ ] `api/server.ts` — FastAPI 服务 + 端点
+- [ ] `config/models.yaml` — 模型配置
+- [ ] `tests/router.test.ts` — 路由单元测试
+- [ ] `scripts/start.sh` — 启动脚本
+- [ ] `README.md` — 项目说明
+
+## 8. Tech Stack
+
+- **Runtime**: Node.js 18+
+- **Framework**: Express.js / FastAPI (Python)
+- **Model Gateway**: LiteLLM
+- **Task Queue**: In-memory (Phase 1) → Redis/Bull (Phase 2)
+- **Config**: YAML
+- **Testing**: Jest / Vitest
