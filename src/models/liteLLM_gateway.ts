@@ -42,8 +42,8 @@ export interface ChatCompletionResponse {
 const MODEL_REGISTRY: Record<string, ModelConfig> = {
   'kimi': {
     provider: 'moonshot',
-    model: 'moonshot-v1-8k',
-    baseUrl: 'https://api.moonshot.cn/v1',
+    model: 'kimi-for-coding/k2p5',
+    baseUrl: 'https://api.kimi.com/coding/v1',
     maxTokens: 4096,
     temperature: 0.7
   },
@@ -56,8 +56,8 @@ const MODEL_REGISTRY: Record<string, ModelConfig> = {
   },
   'ark': {
     provider: 'bytedance',
-    model: 'Doubao-pro',
-    baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
+    model: 'doubao-seed-2.0-code',
+    baseUrl: 'https://ark.cn-beijing.volces.com/api/coding/v3',
     maxTokens: 4096,
     temperature: 0.7
   }
