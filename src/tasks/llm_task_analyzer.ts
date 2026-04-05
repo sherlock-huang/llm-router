@@ -28,7 +28,7 @@ export interface LLMAnalysisResult {
 export class LLMTaskAnalyzer {
   private analyzerModel: string
 
-  constructor(analyzerModel: string = 'gpt-4o') {
+  constructor(analyzerModel: string = 'minimax') {
     this.analyzerModel = analyzerModel
   }
 
@@ -69,10 +69,15 @@ export class LLMTaskAnalyzer {
         maxTokens: 500
       })
 
-      const parsed = JSON.parse(response.content.trim())
+      // 去掉 markdown 代码块包装
+      let jsonStr = response.content.trim()
+      jsonStr = jsonStr.replace(/^```json\s*/i, '').replace(/```\s*$/i, '')
+      jsonStr = jsonStr.replace(/^```\s*/i, '').replace(/```\s*$/i, '')
+      
+      const parsed = JSON.parse(jsonStr)
       return {
         taskType: parsed.taskType || 'general',
-        primaryModel: parsed.primaryModel || 'gpt-4o',
+        primaryModel: parsed.primaryModel || 'kimi',
         confidence: parsed.confidence ?? 0.7,
         needsDecomposition: parsed.needsDecomposition ?? false,
         complexity: parsed.complexity || 'low',
@@ -139,7 +144,12 @@ export class LLMTaskAnalyzer {
         maxTokens: 800
       })
 
-      const parsed = JSON.parse(response.content.trim())
+      // 去掉 markdown 代码块包装
+      let decompJson = response.content.trim()
+      decompJson = decompJson.replace(/^```json\s*/i, '').replace(/```\s*$/i, '')
+      decompJson = decompJson.replace(/^```\s*/i, '').replace(/```\s*$/i, '')
+      
+      const parsed = JSON.parse(decompJson)
       
       // 添加 task IDs
       const subTasks = (parsed.subTasks || []).map((st: any, idx: number) => ({

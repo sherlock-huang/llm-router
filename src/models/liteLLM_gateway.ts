@@ -6,7 +6,7 @@
 import axios from 'axios'
 
 export interface ModelConfig {
-  provider: 'openai' | 'anthropic' | 'google' | 'ollama' | 'custom'
+  provider: 'openai' | 'anthropic' | 'google' | 'moonshot' | 'bytedance' | 'minimax' | 'ollama' | 'custom'
   model: string
   apiKey?: string
   baseUrl?: string
@@ -40,31 +40,24 @@ export interface ChatCompletionResponse {
 
 // 模型配置注册表
 const MODEL_REGISTRY: Record<string, ModelConfig> = {
-  'gpt-4o': {
-    provider: 'openai',
-    model: 'gpt-4o',
-    baseUrl: 'https://api.openai.com/v1',
+  'kimi': {
+    provider: 'moonshot',
+    model: 'moonshot-v1-8k',
+    baseUrl: 'https://api.moonshot.cn/v1',
     maxTokens: 4096,
     temperature: 0.7
   },
-  'gpt-4o-mini': {
-    provider: 'openai',
-    model: 'gpt-4o-mini',
-    baseUrl: 'https://api.openai.com/v1',
+  'minimax': {
+    provider: 'minimax',
+    model: 'MiniMax-M2.7',
+    baseUrl: 'https://api.minimaxi.com/anthropic/v1',
     maxTokens: 4096,
     temperature: 0.7
   },
-  'claude': {
-    provider: 'anthropic',
-    model: 'claude-3-5-sonnet-20241022',
-    baseUrl: 'https://api.anthropic.com/v1',
-    maxTokens: 4096,
-    temperature: 0.7
-  },
-  'gemini': {
-    provider: 'google',
-    model: 'gemini-pro',
-    baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+  'ark': {
+    provider: 'bytedance',
+    model: 'Doubao-pro',
+    baseUrl: 'https://ark.cn-beijing.volces.com/api/v3',
     maxTokens: 4096,
     temperature: 0.7
   }
@@ -74,7 +67,10 @@ function getApiKey(provider: string): string | undefined {
   const envMap: Record<string, string> = {
     openai: 'OPENAI_API_KEY',
     anthropic: 'ANTHROPIC_API_KEY',
-    google: 'GEMINI_API_KEY'
+    google: 'GEMINI_API_KEY',
+    moonshot: 'MOONSHOT_API_KEY',
+    bytedance: 'ARK_API_KEY',
+    minimax: 'MINIMAX_API_KEY'
   }
   const envKey = envMap[provider]
   if (envKey) {
@@ -93,9 +89,9 @@ export async function chatCompletion(request: ChatCompletionRequest): Promise<Ch
 
   const apiKey = getApiKey(config.provider) || config.apiKey
 
-  if (config.provider === 'openai' || !config.provider) {
+  if (config.provider === 'openai' || config.provider === 'moonshot' || config.provider === 'bytedance') {
     return callOpenAI(config, request, apiKey)
-  } else if (config.provider === 'anthropic') {
+  } else if (config.provider === 'anthropic' || config.provider === 'minimax') {
     return callAnthropic(config, request, apiKey)
   } else if (config.provider === 'google') {
     return callGoogle(config, request, apiKey)
@@ -167,9 +163,18 @@ async function callAnthropic(config: ModelConfig, request: ChatCompletionRequest
   )
 
   const data = response.data
+  // 处理 Minimax/Anthropic 格式: content 可能是数组
+  let text = ''
+  if (Array.isArray(data.content)) {
+    // 找到 type="text" 的元素
+    const textBlock = data.content.find((c: any) => c.type === 'text')
+    text = textBlock?.text ?? ''
+  } else {
+    text = data.content ?? ''
+  }
   return {
     model: config.model,
-    content: data.content?.[0]?.text ?? '',
+    content: text,
     usage: data.usage ? {
       promptTokens: data.usage.input_tokens,
       completionTokens: data.usage.output_tokens,

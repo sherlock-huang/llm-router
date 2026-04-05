@@ -2,9 +2,9 @@
 # 配置 API Keys 和路由规则
 
 models:
-  gpt-4o:
-    provider: openai
-    model: gpt-4o
+  kimi:
+    provider: moonshot
+    model: moonshot-v1-8k
     max_tokens: 4096
     temperature: 0.7
     routing:
@@ -12,57 +12,56 @@ models:
         - 代码
         - 写代码
         - function
+        - def
+        - class
+        - import
         - debug
+        - bug
         - 算法
+        - 编程
         - python
         - javascript
+        - java
+        - rust
+        - sql
+        - api
+        - 接口
       score: 0.9
 
-  gpt-4o-mini:
-    provider: openai
-    model: gpt-4o-mini
+  minimax:
+    provider: minimax
+    model: MiniMax-M2.7
     max_tokens: 4096
     temperature: 0.7
     routing:
       keywords:
-        - 简单
-        - 快速
-        - 小功能
-      score: 0.7
-
-  claude:
-    provider: anthropic
-    model: claude-3-5-sonnet-20241022
-    max_tokens: 4096
-    temperature: 0.7
-    routing:
-      keywords:
-        - 解释
         - 分析
+        - 解释
         - 为什么
-        - 总结
-        - 摘要
-        - 创意写作
+        - 理解
+        - 推理
       score: 0.85
 
-  gemini:
-    provider: google
-    model: gemini-pro
+  ark:
+    provider: bytedance
+    model: Doubao-pro
     max_tokens: 4096
     temperature: 0.7
     routing:
       keywords:
-        - 最新
-        - 实时
-        - 新闻
-        - 今天
-        - 现在
-      score: 0.75
+        - 创意
+        - 写作
+        - 写故事
+        - 文案
+        - 小说
+        - 摘要
+        - 总结
+      score: 0.8
 
 # 默认设置
 defaults:
   timeout_ms: 60000
   max_retries: 2
-  default_model: gpt-4o
+  default_model: minimax
   enable_decomposition: true
   decomposition_threshold: high  # low/medium/high

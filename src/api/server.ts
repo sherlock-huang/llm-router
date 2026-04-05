@@ -186,12 +186,25 @@ app.post('/v1/chat/completions', async (req: Request, res: Response, next: NextF
 // ============================================================
 app.get('/v1/models', (req: Request, res: Response) => {
   const models = listAvailableModels()
+  const hasApiKey = !!(
+    process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.GEMINI_API_KEY ||
+    process.env.MOONSHOT_API_KEY || process.env.MINIMAX_API_KEY || process.env.ARK_API_KEY
+  )
   res.json({
     models: models.map(m => ({
       name: m.name,
       provider: m.config.provider,
-      supported: !!process.env.OPENAI_API_KEY || !!process.env.ANTHROPIC_API_KEY || !!process.env.GEMINI_API_KEY
+      supported: hasApiKey
     }))
+  })
+})
+
+// 调试端点
+app.get('/debug/env', (req: Request, res: Response) => {
+  res.json({
+    moonshot: process.env.MOONSHOT_API_KEY ? 'SET' : 'NOT SET',
+    minimax: process.env.MINIMAX_API_KEY ? 'SET' : 'NOT SET',
+    ark: process.env.ARK_API_KEY ? 'SET' : 'NOT SET'
   })
 })
 

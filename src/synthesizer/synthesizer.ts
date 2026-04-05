@@ -158,7 +158,7 @@ export async function synthesizeWithLLM(
     `[子任务 ${idx + 1} | 模型: ${i.model}]\n${i.content}`
   ).join('\n\n---\n\n')
 
-  const resultText = await chatFn('gpt-4o', [
+  const resultText = await chatFn('kimi', [
     { role: 'system', content: systemPrompt },
     { role: 'user', content: `请合成以下子任务结果：\n\n${combinedInput}` }
   ])
