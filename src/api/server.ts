@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { route, routeMultipleModels } from '../router/rule_based_router.js'
 import { chatCompletion, listAvailableModels, type ChatMessage } from '../models/liteLLM_gateway.js'
 import { analyzeTask, decomposeTask, type AnalysisResult } from '../tasks/task_analyzer.js'
+import { LLMTaskAnalyzer, getLLMAnalyzer } from '../tasks/llm_task_analyzer.js'
 import { synthesizeSimple, synthesizeWithLLM, type SynthesisInput } from '../synthesizer/synthesizer.js'
 import { loadConfig } from '../config/loader.js'
 
@@ -39,12 +40,40 @@ app.post('/v1/chat/completions', async (req: Request, res: Response, next: NextF
     const userMessage = validated.messages[validated.messages.length - 1]?.content ?? ''
     const config = loadConfig()
 
-    // 2. 任务分析
-    const analysis = analyzeTask(userMessage)
-    console.log(`[Router] Task analysis: type=${analysis.taskType}, complexity=${analysis.complexity}, model=${analysis.primaryModel}`)
+    // 2. 任务分析（Phase 2: 支持 LLM 驱动分析）
+    const useLLM = req.headers['x-use-llm'] === 'true' || req.query['use_llm'] === 'true'
+    let analysis: AnalysisResult
+    let llmAnalysis: any = null
 
-    // 3. 任务分解
-    const decomposition = decomposeTask(userMessage, analysis)
+    if (useLLM) {
+      // LLM 驱动的智能分析
+      console.log('[Router] Using LLM-driven analysis (Phase 2)')
+      const analyzer = getLLMAnalyzer()
+      llmAnalysis = await analyzer.analyze(userMessage)
+      analysis = {
+        taskType: llmAnalysis.taskType,
+        primaryModel: llmAnalysis.primaryModel,
+        confidence: llmAnalysis.confidence,
+        needsDecomposition: llmAnalysis.needsDecomposition,
+        complexity: llmAnalysis.complexity,
+        language: llmAnalysis.language
+      }
+      console.log(`[Router] LLM analysis: type=${llmAnalysis.taskType}, complexity=${llmAnalysis.complexity}, model=${llmAnalysis.primaryModel}, reason=${llmAnalysis.reasoning}`)
+    } else {
+      // 规则路由（Phase 1）
+      analysis = analyzeTask(userMessage)
+      console.log(`[Router] Task analysis: type=${analysis.taskType}, complexity=${analysis.complexity}, model=${analysis.primaryModel}`)
+    }
+
+    // 3. 任务分解（Phase 2: 支持 LLM 驱动的智能拆解）
+    let decomposition
+    if (useLLM && llmAnalysis) {
+      const analyzer = getLLMAnalyzer()
+      decomposition = await analyzer.decompose(userMessage, llmAnalysis)
+      console.log(`[Router] LLM decomposition: needs=${decomposition.needsDecomposition}, subTasks=${decomposition.subTasks.length}`)
+    } else {
+      decomposition = decomposeTask(userMessage, analysis)
+    }
 
     let result: string
     let sourceModel: string
@@ -88,8 +117,17 @@ app.post('/v1/chat/completions', async (req: Request, res: Response, next: NextF
         })
       )
 
-      // 合成结果
-      const synthesis = synthesizeSimple(synthesisInputs)
+      // 合成结果（Phase 2: 支持 LLM 驱动的智能合成）
+      let synthesis
+      if (useLLM) {
+        console.log('[Router] Using LLM-driven synthesis (Phase 2)')
+        synthesis = await synthesizeWithLLM(synthesisInputs, async (model, messages) => {
+          const resp = await chatCompletion({ model, messages: messages as any })
+          return resp.content
+        })
+      } else {
+        synthesis = synthesizeSimple(synthesisInputs)
+      }
       result = synthesis.finalContent
       sourceModel = synthesis.sources.map(s => s.model).join('+')
 
@@ -118,11 +156,18 @@ app.post('/v1/chat/completions', async (req: Request, res: Response, next: NextF
       routing: {
         detectedType: analysis.taskType,
         complexity: analysis.complexity,
-        confidence: analysis.confidence
+        confidence: analysis.confidence,
+        llmDriven: useLLM || false,
+        llmReasoning: llmAnalysis?.reasoning || null
       },
       decomposition: decomposition.needsDecomposition ? {
         reason: decomposition.reason,
-        subTaskCount: decomposition.subTasks.length
+        subTaskCount: decomposition.subTasks.length,
+        subTasks: decomposition.subTasks.map((st: any) => ({
+          id: st.id,
+          description: st.description,
+          model: st.assignedModel
+        }))
       } : null
     })
 
@@ -162,7 +207,7 @@ app.get('/health', (req: Request, res: Response) => {
 })
 
 // ============================================================
-// 手动路由测试：POST /v1/route
+// 手动路由测试：POST /v1/route (Phase 1 规则路由)
 // ============================================================
 app.post('/v1/route', (req: Request, res: Response) => {
   const { content } = req.body
@@ -179,6 +224,37 @@ app.post('/v1/route', (req: Request, res: Response) => {
     analysis,
     decomposition
   })
+})
+
+// ============================================================
+// Phase 2: LLM 驱动的智能路由测试：POST /v1/route/llm
+// ============================================================
+app.post('/v1/route/llm', async (req: Request, res: Response) => {
+  const { content } = req.body
+  if (!content || typeof content !== 'string') {
+    res.status(400).json({ error: 'content is required' })
+    return
+  }
+
+  try {
+    const analyzer = getLLMAnalyzer()
+    
+    // LLM 分析
+    const llmAnalysis = await analyzer.analyze(content)
+    
+    // LLM 拆解
+    const decomposition = await analyzer.decompose(content, llmAnalysis)
+
+    res.json({
+      phase: 2,
+      llmDriven: true,
+      analysis: llmAnalysis,
+      decomposition
+    })
+  } catch (error: any) {
+    console.error('[LLMRoute] Error:', error)
+    res.status(500).json({ error: 'LLM analysis failed', message: error.message })
+  }
 })
 
 // ============================================================

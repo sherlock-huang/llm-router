@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLM Router - Phase 2 测试</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f1a; color: #e0e0e0; min-height: 100vh; padding: 20px; }
+    .container { max-width: 900px; margin: 0 auto; }
+    h1 { text-align: center; color: #00d4ff; margin-bottom: 10px; }
+    .subtitle { text-align: center; color: #888; margin-bottom: 30px; }
+    
+    .panel { background: #1a1a2e; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #2a2a4a; }
+    .panel-title { color: #00d4ff; font-size: 14px; font-weight: 600; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }
+    
+    .input-group { display: flex; gap: 10px; }
+    textarea { flex: 1; background: #0f0f1a; border: 1px solid #2a2a4a; border-radius: 8px; padding: 15px; color: #e0e0e0; font-size: 16px; resize: vertical; min-height: 80px; }
+    textarea:focus { outline: none; border-color: #00d4ff; }
+    button { background: linear-gradient(135deg, #00d4ff, #0066ff); border: none; border-radius: 8px; padding: 15px 30px; color: white; font-size: 16px; cursor: pointer; font-weight: 600; transition: transform 0.1s; }
+    button:hover { transform: scale(1.02); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    
+    .result { display: none; }
+    .result.show { display: block; }
+    
+    .result-section { margin-bottom: 15px; }
+    .result-label { color: #888; font-size: 12px; margin-bottom: 5px; }
+    .result-value { background: #0f0f1a; border-radius: 6px; padding: 12px; font-size: 14px; line-height: 1.6; }
+    
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; margin-right: 8px; margin-bottom: 5px; }
+    .badge-code { background: #1e3a5f; color: #00d4ff; }
+    .badge-creative { background: #3d1e5f; color: #d400ff; }
+    .badge-analysis { background: #1e5f3d; color: #00ff88; }
+    .badge-general { background: #5f5f1e; color: #ffdd00; }
+    .badge-high { background: #5f1e1e; color: #ff4444; }
+    .badge-medium { background: #5f4a1e; color: #ffaa00; }
+    .badge-low { background: #1e5f5f; color: #00ffff; }
+    
+    .subtasks { margin-top: 10px; }
+    .subtask { background: #0f0f1a; border-left: 3px solid #00d4ff; padding: 10px 15px; margin-bottom: 8px; border-radius: 0 6px 6px 0; }
+    .subtask-model { color: #00d4ff; font-size: 12px; }
+    .subtask-desc { margin-top: 5px; }
+    .subtask-dep { color: #888; font-size: 11px; margin-top: 3px; }
+    
+    .final-content { background: #0f0f1a; border-radius: 8px; padding: 20px; white-space: pre-wrap; font-family: 'Fira Code', monospace; font-size: 13px; max-height: 400px; overflow-y: auto; }
+    .final-content code { background: #2a2a4a; padding: 2px 6px; border-radius: 4px; }
+    
+    .loading { text-align: center; padding: 20px; color: #888; }
+    .loading::after { content: '...'; animation: dots 1.5s infinite; }
+    @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60%, 100% { content: '...'; } }
+    
+    .error { background: #3d1e1e; border-color: #ff4444; color: #ff6666; padding: 15px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🤖 LLM Router</h1>
+    <p class="subtitle">Phase 2: LLM 驱动的智能路由测试</p>
+    
+    <div class="panel">
+      <div class="panel-title">📝 输入任务</div>
+      <div class="input-group">
+        <textarea id="taskInput" placeholder="例如：帮我写一个用户注册功能，包括前端表单和后端API">帮我写一个用户注册功能，包括前端表单和后端API</textarea>
+        <button id="analyzeBtn" onclick="analyze()">分析</button>
+      </div>
+    </div>
+    
+    <div class="panel result" id="analysisResult">
+      <div class="panel-title">🧠 LLM 分析结果</div>
+      <div class="result-section">
+        <div class="result-label">任务类型</div>
+        <div class="result-value" id="taskType"></div>
+      </div>
+      <div class="result-section">
+        <div class="result-label">推荐模型</div>
+        <div class="result-value" id="primaryModel"></div>
+      </div>
+      <div class="result-section">
+        <div class="result-label">置信度</div>
+        <div class="result-value" id="confidence"></div>
+      </div>
+      <div class="result-section">
+        <div class="result-label">复杂度</div>
+        <div class="result-value" id="complexity"></div>
+      </div>
+      <div class="result-section">
+        <div class="result-label">分析理由</div>
+        <div class="result-value" id="reasoning"></div>
+      </div>
+    </div>
+    
+    <div class="panel result" id="decompResult">
+      <div class="panel-title">📋 任务拆解</div>
+      <div class="result-value" id="decompReason" style="margin-bottom: 15px;"></div>
+      <div class="subtasks" id="subtasks"></div>
+    </div>
+    
+    <div class="panel result" id="finalResult">
+      <div class="panel-title">✨ 最终结果</div>
+      <div class="result-label">来源模型</div>
+      <div class="result-value" id="sourceModel" style="margin-bottom: 15px;"></div>
+      <div class="result-label">完整内容</div>
+      <div class="final-content" id="finalContent"></div>
+    </div>
+    
+    <div class="panel result" id="errorPanel">
+      <div class="error" id="errorMsg"></div>
+    </div>
+  </div>
+  
+  <script>
+    const API_BASE = 'http://localhost:3000';
+    
+    async function analyze() {
+      const input = document.getElementById('taskInput').value.trim();
+      if (!input) return;
+      
+      const btn = document.getElementById('analyzeBtn');
+      btn.disabled = true;
+      btn.textContent = '分析中';
+      
+      // Hide previous results
+      document.querySelectorAll('.result').forEach(el => el.classList.remove('show'));
+      document.getElementById('errorPanel').classList.remove('show');
+      
+      try {
+        // Step 1: LLM Analysis
+        const analyzeRes = await fetch(`${API_BASE}/v1/route/llm`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: input })
+        });
+        
+        if (!analyzeRes.ok) {
+          throw new Error(`API 错误: ${analyzeRes.status}`);
+        }
+        
+        const data = await analyzeRes.json();
+        
+        // Show analysis
+        showAnalysis(data.analysis);
+        
+        // Show decomposition
+        if (data.decomposition.needsDecomposition) {
+          showDecomposition(data.decomposition);
+        } else {
+          document.getElementById('decompResult').classList.add('show');
+          document.getElementById('decompReason').textContent = '✅ ' + data.decomposition.reason;
+        }
+        
+        // Step 2: Actually execute the task
+        const chatRes = await fetch(`${API_BASE}/v1/chat/completions`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-use-llm': 'true'
+          },
+          body: JSON.stringify({ messages: [{ role: 'user', content: input }] })
+        });
+        
+        const chatData = await chatRes.json();
+        
+        // Show final result
+        showFinalResult(chatData);
+        
+      } catch (err) {
+        document.getElementById('errorPanel').classList.add('show');
+        document.getElementById('errorMsg').textContent = '错误: ' + err.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '分析';
+      }
+    }
+    
+    function showAnalysis(analysis) {
+      document.getElementById('analysisResult').classList.add('show');
+      
+      const typeEl = document.getElementById('taskType');
+      const typeMap = { code: '代码', creative: '创意写作', analysis: '分析问答', reasoning: '推理', search: '搜索', summary: '总结', vision: '图像', general: '通用' };
+      const typeClass = { code: 'badge-code', creative: 'badge-creative', analysis: 'badge-analysis', general: 'badge-general' };
+      typeEl.innerHTML = `<span class="badge ${typeClass[analysis.taskType] || 'badge-general'}">${typeMap[analysis.taskType] || analysis.taskType}</span>`;
+      
+      document.getElementById('primaryModel').innerHTML = `<span class="badge badge-code">${analysis.primaryModel}</span>`;
+      document.getElementById('confidence').innerHTML = `${(analysis.confidence * 100).toFixed(0)}%`;
+      
+      const compClass = { high: 'badge-high', medium: 'badge-medium', low: 'badge-low' };
+      const compMap = { high: '高', medium: '中', low: '低' };
+      document.getElementById('complexity').innerHTML = `<span class="badge ${compClass[analysis.complexity]}">${compMap[analysis.complexity]}</span>`;
+      
+      document.getElementById('reasoning').textContent = analysis.reasoning || '无';
+    }
+    
+    function showDecomposition(decomp) {
+      document.getElementById('decompResult').classList.add('show');
+      document.getElementById('decompReason').textContent = '📦 ' + decomp.reason;
+      
+      const container = document.getElementById('subtasks');
+      container.innerHTML = decomp.subTasks.map(st => `
+        <div class="subtask">
+          <div class="subtask-model">🤖 ${st.assignedModel}</div>
+          <div class="subtask-desc">${st.description}</div>
+          ${st.dependencies.length ? `<div class="subtask-dep">依赖: ${st.dependencies.join(', ')}</div>` : ''}
+        </div>
+      `).join('');
+    }
+    
+    function showFinalResult(data) {
+      document.getElementById('finalResult').classList.add('show');
+      document.getElementById('sourceModel').textContent = data.model || data.routing?.detectedType || 'N/A';
+      
+      let content = data.content || '无内容';
+      // Pretty print if it looks like code
+      if (content.includes('function') || content.includes('def ') || content.includes('class ') || content.includes('{')) {
+        content = content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+      document.getElementById('finalContent').innerHTML = content;
+    }
+  </script>
+</body>
+</html>

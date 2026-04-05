@@ -133,18 +133,66 @@ models:
         score: 0.85
 ```
 
-## 7. 本周可交付（Phase 1）
+## 7. Phase 1 交付（已完成）
 
 - [x] 项目结构搭建
 - [x] SPEC.md 编写
-- [ ] `router/rule_based_router.ts` — 规则路由核心
-- [ ] `models/liteLLM_gateway.ts` — 模型网关封装
-- [ ] `tasks/task_analyzer.ts` — 任务类型分析
-- [ ] `api/server.ts` — FastAPI 服务 + 端点
-- [ ] `config/models.yaml` — 模型配置
-- [ ] `tests/router.test.ts` — 路由单元测试
-- [ ] `scripts/start.sh` — 启动脚本
-- [ ] `README.md` — 项目说明
+- [x] `router/rule_based_router.ts` — 规则路由核心
+- [x] `models/liteLLM_gateway.ts` — 模型网关封装
+- [x] `tasks/task_analyzer.ts` — 任务类型分析（启发式）
+- [x] `api/server.ts` — API 服务 + 端点
+- [x] `config/models.yaml` — 模型配置
+
+## 7b. Phase 2 交付（已完成）
+
+- [x] `tasks/llm_task_analyzer.ts` — LLM 驱动的任务分析器
+- [x] `analyze()` — LLM 智能分析任务类型、复杂度、推荐模型
+- [x] `decompose()` — LLM 智能拆解复杂任务
+- [x] `synthesizeWithLLM()` — LLM 驱动的结果聚合
+- [x] 集成到 `server.ts` — 通过 `x-use-llm: true` header 启用
+- [x] `POST /v1/route/llm` — 专用 Phase 2 测试端点
+
+### Phase 2 使用方式
+
+**方式一：Header 启用**
+```bash
+curl -X POST http://localhost:3000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "x-use-llm: true" \
+  -d '{"messages": [{"role": "user", "content": "帮我写一个用户注册功能，包括前端和后端"}]}'
+```
+
+**方式二：专用测试端点**
+```bash
+curl -X POST http://localhost:3000/v1/route/llm \
+  -H "Content-Type: application/json" \
+  -d '{"content": "帮我写一个用户注册功能，包括前端和后端"}'
+```
+
+**Phase 2 响应示例**
+```json
+{
+  "phase": 2,
+  "llmDriven": true,
+  "analysis": {
+    "taskType": "code",
+    "primaryModel": "gpt-4o",
+    "confidence": 0.92,
+    "needsDecomposition": true,
+    "complexity": "high",
+    "reasoning": "任务涉及前后端完整功能，需要拆解"
+  },
+  "decomposition": {
+    "needsDecomposition": true,
+    "reason": "LLM 智能拆解",
+    "subTasks": [
+      {"id": "task-1", "description": "设计数据库表结构", "assignedModel": "claude", "dependencies": [], "priority": 1},
+      {"id": "task-2", "description": "实现后端注册API", "assignedModel": "gpt-4o", "dependencies": [], "priority": 2},
+      {"id": "task-3", "description": "实现前端注册表单", "assignedModel": "gpt-4o", "dependencies": ["task-2"], "priority": 3}
+    ]
+  }
+}
+```
 
 ## 8. Tech Stack
 
