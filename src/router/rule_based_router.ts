@@ -27,14 +27,14 @@ export interface RoutingResult {
   reason: string
 }
 
-const DEFAULT_MODEL = 'gpt-4o'
+const DEFAULT_MODEL = 'minimax'
 
 const ROUTING_RULES: RoutingRule[] = [
   {
     type: 'code',
-    keywords: ['代码', '写代码', 'function', 'def ', 'class ', 'import ', 'debug', 'bug', '算法', '编程', 'python', 'javascript', 'java', 'rust', 'sql', 'api', '接口'],
-    model: 'gpt-4o',
-    score: 0.9
+    keywords: ['代码', '写代码', 'function', 'def ', 'class ', 'import ', 'debug', 'bug', '算法', '编程', 'python', 'javascript', 'java', 'rust', 'sql', 'api', '接口', 'stepfun'],
+    model: 'ark',
+    score: 0.95
   },
   {
     type: 'creative',

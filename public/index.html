@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MOP - 大模型智能路由平台</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f0f23; color: #e0e0e0; min-height: 100vh; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    
+    h1 { text-align: center; color: #00d4ff; margin-bottom: 10px; font-size: 2em; }
+    .subtitle { text-align: center; color: #888; margin-bottom: 30px; }
+    
+    .panel { background: #1a1a2e; border-radius: 12px; padding: 24px; margin-bottom: 20px; border: 1px solid #2a2a4a; }
+    .panel-title { color: #00d4ff; font-size: 1.2em; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .panel-title::before { content: '▶'; font-size: 0.8em; }
+    
+    .model-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .model-card { background: #16213e; border-radius: 8px; padding: 16px; border: 1px solid #2a2a4a; }
+    .model-card h3 { color: #00d4ff; margin-bottom: 8px; }
+    .model-card .provider { color: #888; font-size: 0.9em; margin-bottom: 8px; }
+    .model-card .status { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; }
+    .status.ok { background: #0a4; color: #fff; }
+    .status.error { background: #a00; color: #fff; }
+    
+    .test-section { margin-top: 20px; }
+    .test-btn { background: #00d4ff; color: #000; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 1em; font-weight: bold; margin: 8px 4px; transition: all 0.2s; }
+    .test-btn:hover { background: #00bbee; transform: translateY(-2px); }
+    .test-btn:disabled { background: #555; cursor: not-allowed; transform: none; }
+    .test-btn.active { box-shadow: 0 0 15px rgba(0,255,136,0.5); }
+    .test-btn.stepfun.active { background: #ff6b6b; box-shadow: 0 0 15px rgba(255,107,107,0.5); }
+    .test-btn.ark.active { background: #4ecdc4; box-shadow: 0 0 15px rgba(78,205,196,0.5); }
+    .test-btn.minimax.active { background: #ffe66d; color: #000; box-shadow: 0 0 15px rgba(255,230,109,0.5); }
+    .test-btn.score-btn { background: #9b59b6; padding: 8px 16px; font-size: 0.9em; }
+    .test-btn.score-btn:hover { background: #8e44ad; }
+    
+    textarea { width: 100%; background: #0a0a1a; border: 1px solid #2a2a4a; border-radius: 6px; color: #e0e0e0; padding: 12px; font-size: 14px; resize: vertical; min-height: 80px; }
+    
+    .result-box { background: #0a0a1a; border: 1px solid #2a2a4a; border-radius: 6px; padding: 16px; margin-top: 16px; max-height: 600px; overflow-y: auto; white-space: pre-wrap; font-family: 'Monaco', 'Menlo', monospace; font-size: 13px; line-height: 1.6; }
+    .result-box .meta { color: #888; font-size: 0.85em; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #2a2a4a; }
+    
+    .result-detail { background: #16213e; border-radius: 6px; padding: 12px; margin: 12px 0; border-left: 3px solid #00d4ff; }
+    .result-detail h4 { color: #00d4ff; margin-bottom: 8px; font-size: 0.9em; }
+    .result-detail .row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #2a2a4a; }
+    .result-detail .row:last-child { border-bottom: none; }
+    .result-detail .label { color: #888; }
+    .result-detail .value { color: #fff; font-weight: bold; }
+    
+    .stats-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 20px; }
+    .stats-card { background: #0a0a1a; border-radius: 8px; padding: 16px; text-align: center; }
+    .stats-card h4 { color: #888; font-size: 0.85em; margin-bottom: 8px; font-weight: normal; }
+    .stats-card .value { font-size: 1.8em; font-weight: bold; color: #00d4ff; }
+    .stats-card .label { font-size: 0.75em; color: #666; margin-top: 4px; }
+    
+    .stats-table { width: 100%; border-collapse: collapse; font-size: 0.85em; margin-top: 12px; }
+    .stats-table th { text-align: left; padding: 8px; color: #888; border-bottom: 1px solid #2a2a4a; background: #0a0a1a; }
+    .stats-table td { padding: 8px; border-bottom: 1px solid #1a1a2e; }
+    .stats-table .total-row { border-top: 2px solid #00d4ff; }
+    .stats-table .total-row td { color: #00d4ff; font-weight: bold; }
+    
+    .time-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+    .time-tab { background: #2a2a4a; border: none; padding: 8px 16px; border-radius: 4px; color: #888; cursor: pointer; font-size: 0.85em; }
+    .time-tab.active { background: #00d4ff; color: #000; }
+    
+    .current-task { background: #1a2a1a; border-radius: 8px; padding: 16px; margin-top: 16px; border: 1px solid #2a4a2a; }
+    .current-task h4 { color: #00ff88; margin-bottom: 12px; }
+    
+    .scoring-panel { background: #2a1a2e; border-radius: 8px; padding: 16px; margin-top: 16px; border: 1px solid #4a2a4a; }
+    .scoring-panel h4 { color: #9b59b6; margin-bottom: 12px; }
+    .scoring-model-select { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .scoring-model-select label { display: flex; align-items: center; gap: 4px; background: #1a1a2e; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+    .scoring-model-select input[type="checkbox"] { accent-color: #9b59b6; }
+    .scoring-prompt { width: 100%; margin-bottom: 12px; }
+    
+    .score-result { background: #1a1a2e; border-radius: 6px; padding: 12px; margin-top: 8px; }
+    .score-item { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #2a2a4a; }
+    .score-item:last-child { border-bottom: none; }
+    .score-average { background: #9b59b6; color: #fff; padding: 8px 12px; border-radius: 4px; margin-top: 8px; text-align: center; font-weight: bold; }
+    
+    .subtask-list { background: #0a0a1a; border-radius: 6px; padding: 12px; margin-top: 8px; }
+    .subtask-item { display: flex; align-items: center; padding: 8px; background: #1a1a2e; border-radius: 4px; margin: 4px 0; }
+    .subtask-item .num { background: #00d4ff; color: #000; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 12px; }
+    .subtask-item .desc { flex: 1; color: #ccc; }
+    .subtask-item .model { color: #a0a0ff; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🤖 MOP</h1>
+    <p class="subtitle">大模型智能路由聚合平台 / LLM Intelligent Routing Platform</p>
+    
+    <!-- 顶部状态栏 -->
+    <div style="background:linear-gradient(90deg,#1a1a2e,#16213e);border-radius:8px;padding:16px;margin-bottom:20px;display:flex;justify-content:space-around;flex-wrap:wrap;gap:12px;text-align:center;">
+      <div><div style="color:#888;font-size:0.85em;">当前场景</div><div style="color:#00d4ff;font-size:1.2em;font-weight:bold;" id="status-scenario">📝 代码任务</div></div>
+      <div><div style="color:#888;font-size:0.85em;">选择模型</div><div style="color:#00ff88;font-size:1.2em;font-weight:bold;" id="status-model">🎯 auto</div></div>
+      <div><div style="color:#888;font-size:0.85em;">预计路由</div><div style="color:#ffe66d;font-size:1.2em;font-weight:bold;" id="status-route">🔵 ark</div></div>
+    </div>
+    
+    <!-- 模型状态 -->
+    <div class="panel">
+      <div class="panel-title">可用模型状态</div>
+      <div class="model-grid" id="modelGrid">
+        <div class="model-card"><h3>stepfun</h3><div class="provider">阶跃星辰 · step-3.5-flash</div><span class="status ok" id="status-stepfun">检测中...</span></div>
+        <div class="model-card"><h3>ark</h3><div class="provider">字节跳动 · volcengine</div><span class="status ok" id="status-ark">检测中...</span></div>
+        <div class="model-card"><h3>minimax</h3><div class="provider">MiniMax · M2.7</div><span class="status ok" id="status-minimax">检测中...</span></div>
+      </div>
+    </div>
+    
+    <!-- Token统计 -->
+    <div class="panel">
+      <div class="panel-title">📊 Token 消耗统计 (持久累计)</div>
+      <div class="time-tabs">
+        <button class="time-tab active" onclick="switchTimeTab('day')" id="tab-day">今日</button>
+        <button class="time-tab" onclick="switchTimeTab('week')" id="tab-week">本周</button>
+        <button class="time-tab" onclick="switchTimeTab('month')" id="tab-month">本月</button>
+      </div>
+      <div class="stats-container" id="statsOverview">
+        <div class="stats-card"><h4>总调用次数</h4><div class="value" id="totalCalls">0</div><div class="label">次</div></div>
+        <div class="stats-card"><h4>输入 Token</h4><div class="value" id="totalPrompt">0</div><div class="label">tokens</div></div>
+        <div class="stats-card"><h4>输出 Token</h4><div class="value" id="totalCompletion">0</div><div class="label">tokens</div></div>
+      </div>
+      <div style="margin-top:16px;">
+        <div style="color:#888;font-size:0.85em;margin-bottom:8px;">各模型消耗明细</div>
+        <table class="stats-table">
+          <thead><tr><th>模型</th><th style="text-align:right;">调用次数</th><th style="text-align:right;">输入Token</th><th style="text-align:right;">输出Token</th><th style="text-align:right;">总Token</th></tr></thead>
+          <tbody id="statsBody"></tbody>
+        </table>
+      </div>
+    </div>
+    
+    <!-- 功能测试 -->
+    <div class="panel">
+      <div class="panel-title">功能测试</div>
+      
+      <div class="test-section">
+        <h3 style="color:#888;margin-bottom:12px;">① 选择测试场景 <span id="scenarioDisplay" style="color:#a0a0ff;"></span></h3>
+        <button class="test-btn" id="btn-code" onclick="setPrompt('code')">📝 代码任务</button>
+        <button class="test-btn" id="btn-analysis" onclick="setPrompt('analysis')">🔍 分析任务</button>
+        <button class="test-btn" id="btn-complex" onclick="setPrompt('complex')">🚀 复杂任务</button>
+        <button class="test-btn" id="btn-creative" onclick="setPrompt('creative')">🎨 创意任务</button>
+      </div>
+      
+      <div class="test-section">
+        <h3 style="color:#888;margin-bottom:12px;">② 选择模型 <span id="selectedModelDisplay" style="color:#00d4ff;font-weight:bold;"></span></h3>
+        <button class="test-btn active" id="btn-auto" onclick="setModel('auto')">🎯 auto 智能路由</button>
+        <button class="test-btn stepfun" id="btn-stepfun" onclick="setModel('stepfun')">stepfun</button>
+        <button class="test-btn ark" id="btn-ark" onclick="setModel('ark')">ark</button>
+        <button class="test-btn minimax" id="btn-minimax" onclick="setModel('minimax')">minimax</button>
+      </div>
+      
+      <div class="test-section">
+        <h3 style="color:#888;margin-bottom:12px;">③ 编辑请求内容</h3>
+        <textarea id="promptInput" placeholder="输入你的问题...">用Python写一个快速排序函数</textarea>
+      </div>
+      
+      <!-- 评分配置 -->
+      <div class="scoring-panel">
+        <h4>⭐ 多模型评分设置</h4>
+        <div style="color:#888;font-size:0.85em;margin-bottom:8px;">选择评分模型（可多选）:</div>
+        <div class="scoring-model-select" id="scoringModels">
+          <label><input type="checkbox" value="stepfun" checked> stepfun</label>
+          <label><input type="checkbox" value="ark"> ark</label>
+          <label><input type="checkbox" value="minimax"> minimax</label>
+        </div>
+        <div style="color:#888;font-size:0.85em;margin-bottom:8px;">评分标准Prompt:</div>
+        <textarea id="scoringPrompt" class="scoring-prompt" placeholder="输入评分标准，例如：请从以下维度对回答评分：1.准确性(0-10) 2.完整性(0-10) 3.简洁性(0-10)，只输出分数">请从以下维度对回答评分：1.准确性(0-10) 2.完整性(0-10) 3.简洁性(0-10)，只输出分数，用逗号分隔</textarea>
+      </div>
+      
+      <div class="test-section">
+        <button class="test-btn" onclick="sendRequest()" id="sendBtn">▶ 发送测试</button>
+        <button class="test-btn" onclick="sendRequestWithScoring()" id="scoreBtn">⭐ 发送并评分</button>
+      </div>
+      
+      <div id="loadingIndicator" style="display:none;text-align:center;padding:20px;">
+        <div style="color:#00d4ff;font-size:1.2em;">⏳ 处理中，请稍候...</div>
+        <div style="color:#888;margin-top:8px;">模型响应可能需要几秒钟</div>
+      </div>
+      
+      <!-- 当次任务详细统计 -->
+      <div class="current-task" id="currentTaskStats" style="display:none;">
+        <h4>📋 当次任务详细信息</h4>
+        <div id="currentTaskContent"></div>
+      </div>
+      
+      <!-- 评分结果 -->
+      <div class="scoring-panel" id="scoringResults" style="display:none;">
+        <h4>⭐ 评分结果</h4>
+        <div id="scoringContent"></div>
+      </div>
+      
+      <!-- 结果区域 -->
+      <div class="result-box" id="resultBox">
+        <div class="meta">结果将显示在这里...</div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    const API_BASE = 'http://localhost:3044';
+    let currentModel = 'auto';
+    let currentPrompt = '';
+    let currentTimeTab = 'day';
+    let lastResponseContent = '';
+    
+    const STATS_KEY = 'mop_token_stats';
+    
+    function getStats() {
+      try {
+        const stored = localStorage.getItem(STATS_KEY);
+        return stored ? JSON.parse(stored) : initStats();
+      } catch (e) { return initStats(); }
+    }
+    
+    function initStats() { return { records: [], lastUpdate: null }; }
+    
+    function saveStats(stats) {
+      stats.lastUpdate = new Date().toISOString();
+      localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+    }
+    
+    function addUsageRecord(model, usage) {
+      if (!usage || !usage.totalTokens) return;
+      const stats = getStats();
+      const today = new Date().toISOString().split('T')[0];
+      let todayRecord = stats.records.find(r => r.date === today && r.model === model);
+      if (todayRecord) {
+        todayRecord.promptTokens += usage.promptTokens || 0;
+        todayRecord.completionTokens += usage.completionTokens || 0;
+        todayRecord.totalTokens += usage.totalTokens || 0;
+        todayRecord.count += 1;
+      } else {
+        stats.records.push({ date: today, model, promptTokens: usage.promptTokens || 0, completionTokens: usage.completionTokens || 0, totalTokens: usage.totalTokens || 0, count: 1 });
+      }
+      saveStats(stats);
+    }
+    
+    function getFilteredStats(period) {
+      const stats = getStats();
+      const now = new Date();
+      let startDate;
+      if (period === 'day') startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString().split('T')[0];
+      else if (period === 'week') { const d = now.getDay() || 7; startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - d + 1).toISOString().split('T')[0]; }
+      else if (period === 'month') startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+      
+      const filtered = stats.records.filter(r => r.date >= startDate);
+      const byModel = {};
+      let totalPrompt = 0, totalCompletion = 0, totalTokens = 0, totalCount = 0;
+      filtered.forEach(r => {
+        if (!byModel[r.model]) byModel[r.model] = { count: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+        byModel[r.model].count += r.count;
+        byModel[r.model].promptTokens += r.promptTokens;
+        byModel[r.model].completionTokens += r.completionTokens;
+        byModel[r.model].totalTokens += r.totalTokens;
+        totalCount += r.count; totalPrompt += r.promptTokens; totalCompletion += r.completionTokens; totalTokens += r.totalTokens;
+      });
+      return { byModel, totals: { count: totalCount, promptTokens: totalPrompt, completionTokens: totalCompletion, totalTokens } };
+    }
+    
+    function updateStatsDisplay() {
+      const data = getFilteredStats(currentTimeTab);
+      document.getElementById('totalCalls').textContent = data.totals.count.toLocaleString();
+      document.getElementById('totalPrompt').textContent = data.totals.promptTokens.toLocaleString();
+      document.getElementById('totalCompletion').textContent = data.totals.completionTokens.toLocaleString();
+      const tbody = document.getElementById('statsBody');
+      let html = '';
+      const modelNames = { stepfun: '🔴 stepfun', ark: '🔵 ark', minimax: '🟡 minimax' };
+      const modelColors = { stepfun: '#ff6b6b', ark: '#4ecdc4', minimax: '#ffe66d' };
+      Object.entries(data.byModel).forEach(([model, s]) => {
+        html += `<tr><td><span style="color:${modelColors[model] || '#fff'}">${modelNames[model] || model}</span></td><td style="text-align:right;">${s.count}</td><td style="text-align:right;">${s.promptTokens.toLocaleString()}</td><td style="text-align:right;">${s.completionTokens.toLocaleString()}</td><td style="text-align:right;font-weight:bold;">${s.totalTokens.toLocaleString()}</td></tr>`;
+      });
+      html += `<tr class="total-row"><td>📊 总计</td><td style="text-align:right;">${data.totals.count}</td><td style="text-align:right;">${data.totals.promptTokens.toLocaleString()}</td><td style="text-align:right;">${data.totals.completionTokens.toLocaleString()}</td><td style="text-align:right;">${data.totals.totalTokens.toLocaleString()}</td></tr>`;
+      tbody.innerHTML = html || '<tr><td colspan="5" style="text-align:center;color:#666;">暂无数据</td></tr>';
+    }
+    
+    function switchTimeTab(tab) {
+      currentTimeTab = tab;
+      document.querySelectorAll('.time-tab').forEach(t => t.classList.remove('active'));
+      document.getElementById(`tab-${tab}`).classList.add('active');
+      updateStatsDisplay();
+    }
+    
+    function updateModelButtons() {
+      ['auto', 'stepfun', 'ark', 'minimax'].forEach(m => {
+        const btn = document.getElementById(`btn-${m}`);
+        if (btn) btn.classList.toggle('active', m === currentModel);
+      });
+      const display = document.getElementById('selectedModelDisplay');
+      if (display) {
+        const labels = { auto: '🎯 auto', stepfun: '🔴 stepfun', ark: '🔵 ark', minimax: '🟡 minimax' };
+        display.textContent = `[${labels[currentModel] || currentModel}]`;
+      }
+    }
+    
+    function updateScenarioButton() {
+      Object.keys(prompts).forEach(key => {
+        const btn = document.getElementById(`btn-${key}`);
+        if (btn) btn.classList.toggle('active', prompts[key] === currentPrompt);
+      });
+      const display = document.getElementById('scenarioDisplay');
+      if (display) {
+        const names = { code: '📝 代码', analysis: '🔍 分析', complex: '🚀 复杂', creative: '🎨 创意' };
+        const found = Object.entries(prompts).find(([k, v]) => v === currentPrompt);
+        display.textContent = found ? `- ${names[found[0]]}` : '';
+      }
+      const scenarioNames = { code: '📝 代码任务', analysis: '🔍 分析任务', complex: '🚀 复杂任务', creative: '🎨 创意任务' };
+      const foundScenario = Object.entries(prompts).find(([k, v]) => v === currentPrompt);
+      const scenarioEl = document.getElementById('status-scenario');
+      if (scenarioEl && foundScenario) scenarioEl.textContent = scenarioNames[foundScenario[0]];
+      updateExpectedRoute();
+    }
+    
+    function updateExpectedRoute() {
+      const routeDisplay = document.getElementById('status-route');
+      if (!routeDisplay) return;
+      if (currentModel !== 'auto') {
+        const modelNames = { stepfun: '🔴 stepfun', ark: '🔵 ark', minimax: '🟡 minimax' };
+        routeDisplay.textContent = modelNames[currentModel] || currentModel;
+        return;
+      }
+      const routeMap = { code: '🔵 ark', analysis: '🟡 minimax', complex: '🔵 ark+🟡 minimax', creative: '🟡 minimax' };
+      const found = Object.entries(prompts).find(([k, v]) => v === currentPrompt);
+      routeDisplay.textContent = found ? routeMap[found[0]] : '❓';
+    }
+    
+    async function checkModels() {
+      try {
+        const res = await fetch(`${API_BASE}/v1/models`);
+        const data = await res.json();
+        data.models.forEach(m => {
+          const el = document.getElementById(`status-${m.name}`);
+          if (el) { el.textContent = m.supported ? '✅ 可用' : '❌ 不可用'; el.className = `status ${m.supported ? 'ok' : 'error'}`; }
+        });
+      } catch (e) {
+        ['stepfun', 'ark', 'minimax'].forEach(name => { const el = document.getElementById(`status-${name}`); if (el) { el.textContent = '❌ 连接失败'; el.className = 'status error'; }});
+      }
+    }
+    
+    const prompts = {
+      code: '用Python写一个快速排序函数',
+      analysis: '解释一下什么是快速排序算法，它的时间复杂度是多少？',
+      complex: '帮我写一个完整的用户登录系统，包括前端界面和后端API',
+      creative: '写一个关于AI的小故事，100字左右'
+    };
+    
+    function setPrompt(type) { currentPrompt = prompts[type]; document.getElementById('promptInput').value = currentPrompt; updateScenarioButton(); }
+    function setModel(model) { currentModel = model; updateModelButtons(); updateExpectedRoute(); const modelNames = { auto: '🎯 auto', stepfun: '🔴 stepfun', ark: '🔵 ark', minimax: '🟡 minimax' }; const modelEl = document.getElementById('status-model'); if (modelEl) modelEl.textContent = modelNames[model] || model; updateExpectedRoute(); }
+    function getModelKey(modelName) { if (!modelName) return null; const lower = modelName.toLowerCase(); if (lower.includes('stepfun')) return 'stepfun'; if (lower.includes('ark') || lower.includes(' volc')) return 'ark'; if (lower.includes('minimax')) return 'minimax'; return null; }
+    
+    function showCurrentTaskStats(data) {
+      const el = document.getElementById('currentTaskStats');
+      const content = document.getElementById('currentTaskContent');
+      if (!el || !content) return;
+      const modelNames = { stepfun: '🔴 stepfun', ark: '🔵 ark', minimax: '🟡 minimax' };
+      const typeLabels = { code: '📝 代码', analysis: '🔍 分析', general: '💬 通用', creative: '🎨 创意', reasoning: '🧠 推理', summary: '📋 总结' };
+      let html = '<div class="result-detail"><h4>🎯 路由决策</h4>';
+      html += `<div class="row"><span class="label">调用模型</span><span class="value" style="color:#00d4ff;">${modelNames[data.model] || data.model}</span></div>`;
+      html += `<div class="row"><span class="label">任务类型</span><span class="value">${typeLabels[data.routing?.detectedType] || data.routing?.detectedType || 'unknown'}</span></div>`;
+      html += `<div class="row"><span class="label">复杂度</span><span class="value">${data.routing?.complexity || 'unknown'}</span></div>`;
+      html += `<div class="row"><span class="label">置信度</span><span class="value">${((data.routing?.confidence || 0) * 100).toFixed(0)}%</span></div>`;
+      if (data.routing?.llmReasoning) html += `<div class="row"><span class="label">LLM推理</span><span class="value">${data.routing.llmReasoning}</span></div>`;
+      html += '</div>';
+      html += '<div class="result-detail"><h4>📊 消耗统计</h4>';
+      if (data.usage && data.usage.totalTokens > 0) {
+        html += `<div class="row"><span class="label">输入Token</span><span class="value">${(data.usage.promptTokens || 0).toLocaleString()}</span></div>`;
+        html += `<div class="row"><span class="label">输出Token</span><span class="value">${(data.usage.completionTokens || 0).toLocaleString()}</span></div>`;
+        html += `<div class="row"><span class="label">总消耗</span><span class="value" style="color:#00ff88;">${(data.usage.totalTokens || 0).toLocaleString()}</span></div>`;
+      } else { html += `<div class="row"><span class="label">状态</span><span class="value" style="color:#ff6b6b;">⚠️ 未获取到消耗数据</span></div>`; }
+      html += `<div class="row"><span class="label">内容长度</span><span class="value">${(data.content || '').length} 字符</span></div>`;
+      html += '</div>';
+      if (data.decomposition?.needsDecomposition) {
+        html += '<div class="result-detail"><h4>🔄 多模型协作</h4>';
+        html += `<div class="row"><span class="label">子任务数</span><span class="value">${data.decomposition.subTaskCount}</span></div>`;
+        if (data.decomposition.subTasks) {
+          html += '<div class="subtask-list">';
+          data.decomposition.subTasks.forEach((st, i) => { html += `<div class="subtask-item"><span class="num">${i + 1}</span><span class="desc">${st.description}</span><span class="model">→ ${modelNames[st.model] || st.model}</span></div>`; });
+          html += '</div>';
+        }
+        html += '</div>';
+      }
+      content.innerHTML = html;
+      el.style.display = 'block';
+      lastResponseContent = data.content || '';
+    }
+    
+    async function sendRequestInternal() {
+      const prompt = document.getElementById('promptInput').value.trim();
+      const res = await fetch(`${API_BASE}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [{ role: 'user', content: prompt }], model: currentModel })
+      });
+      return res.json();
+    }
+    
+    async function sendRequest() {
+      const btn = document.getElementById('sendBtn');
+      const scoreBtn = document.getElementById('scoreBtn');
+      const loading = document.getElementById('loadingIndicator');
+      btn.disabled = true; scoreBtn.disabled = true;
+      if (loading) loading.style.display = 'block';
+      const resultBox = document.getElementById('resultBox');
+      resultBox.innerHTML = '<div class="meta">⏳ 等待响应...</div>';
+      document.getElementById('scoringResults').style.display = 'none';
+      try {
+        const data = await sendRequestInternal();
+        const modelKey = getModelKey(data.model);
+        if (modelKey && data.usage) { addUsageRecord(modelKey, data.usage); }
+        updateStatsDisplay();
+        showCurrentTaskStats(data);
+        let metaHtml = `<div class="meta"><span style="color:#00ff88;">✓ 调用成功</span> | 模型: <strong>${data.model}</strong> | 类型: ${data.routing?.detectedType || 'unknown'}`;
+        if (data.usage && data.usage.totalTokens > 0) metaHtml += ` | Tokens: <strong>${data.usage.totalTokens.toLocaleString()}</strong>`;
+        metaHtml += '</div>';
+        resultBox.innerHTML = metaHtml + (data.content || '无内容');
+      } catch (e) { resultBox.innerHTML = `<div class="meta" style="color:#f66;">❌ 请求失败: ${e.message}</div>`; }
+      btn.disabled = false; scoreBtn.disabled = false;
+      if (loading) loading.style.display = 'none';
+    }
+    
+    async function sendRequestWithScoring() {
+      const btn = document.getElementById('sendBtn');
+      const scoreBtn = document.getElementById('scoreBtn');
+      const loading = document.getElementById('loadingIndicator');
+      btn.disabled = true; scoreBtn.disabled = true;
+      if (loading) loading.style.display = 'block';
+      const resultBox = document.getElementById('resultBox');
+      resultBox.innerHTML = '<div class="meta">⏳ 发送请求并启动多模型评分...</div>';
+      try {
+        const data = await sendRequestInternal();
+        const modelKey = getModelKey(data.model);
+        if (modelKey && data.usage) { addUsageRecord(modelKey, data.usage); }
+        updateStatsDisplay();
+        showCurrentTaskStats(data);
+        let metaHtml = `<div class="meta"><span style="color:#00ff88;">✓ 调用成功</span> | 模型: <strong>${data.model}</strong> | 类型: ${data.routing?.detectedType || 'unknown'}`;
+        if (data.usage && data.usage.totalTokens > 0) metaHtml += ` | Tokens: <strong>${data.usage.totalTokens.toLocaleString()}</strong>`;
+        metaHtml += '</div>';
+        resultBox.innerHTML = metaHtml + (data.content || '无内容');
+        lastResponseContent = data.content || '';
+        // 多模型评分
+        await doScoring(data.content);
+      } catch (e) { resultBox.innerHTML = `<div class="meta" style="color:#f66;">❌ 请求失败: ${e.message}</div>`; }
+      btn.disabled = false; scoreBtn.disabled = false;
+      if (loading) loading.style.display = 'none';
+    }
+    
+    async function doScoring(content) {
+      if (!content) return;
+      const scoringModels = Array.from(document.querySelectorAll('#scoringModels input:checked')).map(c => c.value);
+      const scoringPrompt = document.getElementById('scoringPrompt').value;
+      if (scoringModels.length === 0) { alert('请选择至少一个评分模型'); return; }
+      const scoringContent = document.getElementById('scoringContent');
+      const scoringResults = document.getElementById('scoringResults');
+      scoringResults.style.display = 'block';
+      scoringContent.innerHTML = '<div style="color:#888;">⏳ 正在多模型评分...</div>';
+      const scores = [];
+      for (const model of scoringModels) {
+        try {
+          const res = await fetch(`${API_BASE}/v1/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: [{ role: 'user', content: `被评分的回答:\n${content}\n\n${scoringPrompt}` }], model })
+          });
+          const data = await res.json();
+          const scoreText = data.content || '';
+          const numbers = scoreText.match(/\d+\.?\d*/g);
+          let score = 0;
+          if (numbers && numbers.length > 0) {
+            score = numbers.slice(0, 3).reduce((a, b) => a + parseFloat(b), 0) / Math.min(numbers.length, 3);
+          } else { score = parseFloat(scoreText) || 0; }
+          scores.push({ model, score: score.toFixed(1), raw: scoreText.substring(0, 100) });
+        } catch (e) { scores.push({ model, score: '0', raw: '评分失败' }); }
+      }
+      const avgScore = scores.length > 0 ? (scores.reduce((a, b) => a + parseFloat(b.score || 0), 0) / scores.length).toFixed(1) : 0;
+      let html = '';
+      const modelNames = { stepfun: '🔴 stepfun', ark: '🔵 ark', minimax: '🟡 minimax' };
+      scores.forEach(s => {
+        html += `<div class="score-item"><span>${modelNames[s.model] || s.model}</span><span style="color:#9b59b6;font-weight:bold;">${s.score}/10</span></div>`;
+        html += `<div style="font-size:0.8em;color:#666;padding-left:12px;margin-bottom:8px;">评分详情: ${s.raw}</div>`;
+      });
+      html += `<div class="score-average">📊 平均得分: ${avgScore}/10</div>`;
+      scoringContent.innerHTML = html;
+    }
+    
+    // 初始化
+    checkModels();
+    updateStatsDisplay();
+    setPrompt('code');
+    updateModelButtons();
+    updateScenarioButton();
+  </script>
+</body>
+</html>

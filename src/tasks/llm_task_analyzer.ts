@@ -75,9 +75,22 @@ export class LLMTaskAnalyzer {
       jsonStr = jsonStr.replace(/^```\s*/i, '').replace(/```\s*$/i, '')
       
       const parsed = JSON.parse(jsonStr)
+      // Map suggested model names to our actual registry models
+      const modelMap: Record<string, string> = {
+        'gpt-4o': 'ark',
+        'claude': 'minimax',
+        'gemini': 'minimax',
+        'kimi': 'ark',
+        'minimax': 'minimax',
+        'ark': 'ark',
+        'stepfun': 'ark'
+      }
+      const suggestedModel = parsed.primaryModel?.toLowerCase() || 'minimax'
+      const mappedModel = modelMap[suggestedModel] || 'minimax'
+
       return {
         taskType: parsed.taskType || 'general',
-        primaryModel: parsed.primaryModel || 'kimi',
+        primaryModel: mappedModel,
         confidence: parsed.confidence ?? 0.7,
         needsDecomposition: parsed.needsDecomposition ?? false,
         complexity: parsed.complexity || 'low',
@@ -179,7 +192,7 @@ export class LLMTaskAnalyzer {
     
     // 简单的关键词匹配作为降级
     let taskType: TaskType = 'general'
-    if (/代码|function|def |class |import |debug|bug|算法|编程|python|javascript|java|rust|sql|api|接口/.test(lower)) {
+    if (/代码|function|def |class |import |debug|bug|算法|编程|python|javascript|java|rust|sql|api|接口|stepfun/.test(lower)) {
       taskType = 'code'
     } else if (/写故事|写诗|创意|文案|小说|剧本|歌词/.test(lower)) {
       taskType = 'creative'
@@ -209,7 +222,7 @@ export class LLMTaskAnalyzer {
 
     return {
       taskType,
-      primaryModel: taskType === 'analysis' || taskType === 'summary' ? 'claude' : 'gpt-4o',
+      primaryModel: taskType === 'code' ? 'ark' : 'minimax',
       confidence: 0.6,
       needsDecomposition: complexity === 'high' || (taskType === 'code' && content.length > 500),
       complexity,
@@ -232,19 +245,19 @@ export class LLMTaskAnalyzer {
 
     if (analysis.taskType === 'code' || analysis.complexity === 'high') {
       if (lower.includes('前端') || lower.includes('界面') || lower.includes('ui')) {
-        subTasks.push({ id: `task-${taskId++}`, description: '设计数据结构和数据模型', assignedModel: 'claude', dependencies: [], priority: 1 })
+        subTasks.push({ id: `task-${taskId++}`, description: '设计数据结构和数据模型', assignedModel: 'minimax', dependencies: [], priority: 1 })
       }
       if (lower.includes('后端') || lower.includes('api') || lower.includes('接口')) {
-        subTasks.push({ id: `task-${taskId++}`, description: '实现后端业务逻辑和API', assignedModel: 'gpt-4o', dependencies: [], priority: 2 })
+        subTasks.push({ id: `task-${taskId++}`, description: '实现后端业务逻辑和API', assignedModel: 'ark', dependencies: [], priority: 2 })
       }
       if (lower.includes('前端') || lower.includes('界面') || lower.includes('ui') || lower.includes('表单')) {
-        subTasks.push({ id: `task-${taskId++}`, description: '实现前端界面和交互', assignedModel: 'gpt-4o', dependencies: [], priority: 3 })
+        subTasks.push({ id: `task-${taskId++}`, description: '实现前端界面和交互', assignedModel: 'ark', dependencies: [], priority: 3 })
       }
     }
 
     if (subTasks.length === 0) {
       subTasks.push({ id: `task-${taskId++}`, description: '核心功能实现', assignedModel: analysis.primaryModel, dependencies: [], priority: 1 })
-      subTasks.push({ id: `task-${taskId++}`, description: '代码测试和验证', assignedModel: 'gpt-4o', dependencies: ['task-1'], priority: 2 })
+      subTasks.push({ id: `task-${taskId++}`, description: '代码测试和验证', assignedModel: 'ark', dependencies: ['task-1'], priority: 2 })
     }
 
     return {

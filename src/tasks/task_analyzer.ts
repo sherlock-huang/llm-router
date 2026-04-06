@@ -129,7 +129,7 @@ export function decomposeTask(content: string, analysis: AnalysisResult): Decomp
       subTasks.push({
         id: `task-${taskId++}`,
         description: '设计数据结构和数据模型',
-        assignedModel: 'claude',
+        assignedModel: 'minimax',
         dependencies: [],
         priority: 1
       })
@@ -139,7 +139,7 @@ export function decomposeTask(content: string, analysis: AnalysisResult): Decomp
       subTasks.push({
         id: `task-${taskId++}`,
         description: '实现后端业务逻辑和API',
-        assignedModel: 'gpt-4o',
+        assignedModel: 'ark',
         dependencies: [],
         priority: 2
       })
@@ -149,7 +149,7 @@ export function decomposeTask(content: string, analysis: AnalysisResult): Decomp
       subTasks.push({
         id: `task-${taskId++}`,
         description: '实现前端界面和交互',
-        assignedModel: 'gpt-4o',
+        assignedModel: 'ark',
         dependencies: [],
         priority: 3
       })
@@ -167,7 +167,7 @@ export function decomposeTask(content: string, analysis: AnalysisResult): Decomp
       subTasks.push({
         id: `task-${taskId++}`,
         description: '代码测试和验证',
-        assignedModel: 'gpt-4o',
+        assignedModel: 'ark',
         dependencies: [`task-1`],
         priority: 2
       })
@@ -177,7 +177,7 @@ export function decomposeTask(content: string, analysis: AnalysisResult): Decomp
     subTasks.push({
       id: `task-${taskId++}`,
       description: '任务分析和信息收集',
-      assignedModel: 'claude',
+      assignedModel: 'minimax',
       dependencies: [],
       priority: 1
     })

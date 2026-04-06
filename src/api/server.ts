@@ -16,6 +16,7 @@ import { loadConfig } from '../config/loader.js'
 const app = express()
 app.use(cors())
 app.use(express.json())
+app.use(express.static('public'))
 
 // 请求验证 Schema
 const ChatCompletionSchema = z.object({
@@ -77,12 +78,36 @@ app.post('/v1/chat/completions', async (req: Request, res: Response, next: NextF
 
     let result: string
     let sourceModel: string
+    let aggregatedUsage: { promptTokens: number; completionTokens: number; totalTokens: number } | null = null
 
-    if (decomposition.needsDecomposition && decomposition.subTasks.length > 0) {
+    // 检查用户是否指定了具体模型（不是auto）
+    const requestedModel = validated.model ?? 'auto'
+    const useExplicitModel = requestedModel !== 'auto'
+
+    if (useExplicitModel) {
+      // 用户指定了模型，直接使用该模型
+      console.log(`[Router] Using explicitly requested model: ${requestedModel}`)
+      sourceModel = requestedModel
+      
+      const response = await chatCompletion({
+        model: requestedModel,
+        messages: validated.messages,
+        temperature: validated.temperature,
+        maxTokens: validated.maxTokens
+      })
+      
+      result = response.content
+      if (response.usage) {
+        aggregatedUsage = response.usage
+      }
+    } else if (decomposition.needsDecomposition && decomposition.subTasks.length > 0) {
       // ========== 复杂任务：多模型并行 + 聚合 ==========
       console.log(`[Router] Decomposing into ${decomposition.subTasks.length} sub-tasks`)
 
       // 并发执行所有子任务
+      let totalPromptTokens = 0
+      let totalCompletionTokens = 0
+      
       const synthesisInputs: SynthesisInput[] = await Promise.all(
         decomposition.subTasks.map(async (subTask) => {
           try {
@@ -97,6 +122,11 @@ app.post('/v1/chat/completions', async (req: Request, res: Response, next: NextF
               temperature: validated.temperature,
               maxTokens: validated.maxTokens
             })
+
+            if (response.usage) {
+              totalPromptTokens += response.usage.promptTokens || 0
+              totalCompletionTokens += response.usage.completionTokens || 0
+            }
 
             return {
               subTaskId: subTask.id,
@@ -116,6 +146,13 @@ app.post('/v1/chat/completions', async (req: Request, res: Response, next: NextF
           }
         })
       )
+
+      // 聚合 token 使用量
+      aggregatedUsage = {
+        promptTokens: totalPromptTokens,
+        completionTokens: totalCompletionTokens,
+        totalTokens: totalPromptTokens + totalCompletionTokens
+      }
 
       // 合成结果（Phase 2: 支持 LLM 驱动的智能合成）
       let synthesis
@@ -147,12 +184,16 @@ app.post('/v1/chat/completions', async (req: Request, res: Response, next: NextF
       })
 
       result = response.content
+      if (response.usage) {
+        aggregatedUsage = response.usage
+      }
     }
 
     // 4. 返回响应
     res.json({
       model: sourceModel,
       content: result,
+      usage: aggregatedUsage,
       routing: {
         detectedType: analysis.taskType,
         complexity: analysis.complexity,

@@ -6,7 +6,7 @@
 import axios from 'axios'
 
 export interface ModelConfig {
-  provider: 'openai' | 'anthropic' | 'google' | 'moonshot' | 'bytedance' | 'minimax' | 'ollama' | 'custom'
+  provider: 'openai' | 'anthropic' | 'google' | 'moonshot' | 'bytedance' | 'minimax' | 'stepfun' | 'ollama' | 'custom'
   model: string
   apiKey?: string
   baseUrl?: string
@@ -40,11 +40,11 @@ export interface ChatCompletionResponse {
 
 // 模型配置注册表
 const MODEL_REGISTRY: Record<string, ModelConfig> = {
-  'kimi': {
-    provider: 'moonshot',
-    model: 'kimi-for-coding/k2p5',
-    baseUrl: 'https://api.kimi.com/coding/v1',
-    maxTokens: 4096,
+  'stepfun': {
+    provider: 'stepfun',
+    model: 'step-3.5-flash',
+    baseUrl: 'https://api.stepfun.com/step_plan/v1',
+    maxTokens: 8192,
     temperature: 0.7
   },
   'minimax': {
@@ -70,7 +70,8 @@ function getApiKey(provider: string): string | undefined {
     google: 'GEMINI_API_KEY',
     moonshot: 'MOONSHOT_API_KEY',
     bytedance: 'ARK_API_KEY',
-    minimax: 'MINIMAX_API_KEY'
+    minimax: 'MINIMAX_API_KEY',
+    stepfun: 'STEP_API_KEY'
   }
   const envKey = envMap[provider]
   if (envKey) {
@@ -89,7 +90,7 @@ export async function chatCompletion(request: ChatCompletionRequest): Promise<Ch
 
   const apiKey = getApiKey(config.provider) || config.apiKey
 
-  if (config.provider === 'openai' || config.provider === 'moonshot' || config.provider === 'bytedance') {
+  if (config.provider === 'openai' || config.provider === 'moonshot' || config.provider === 'bytedance' || config.provider === 'stepfun') {
     return callOpenAI(config, request, apiKey)
   } else if (config.provider === 'anthropic' || config.provider === 'minimax') {
     return callAnthropic(config, request, apiKey)
