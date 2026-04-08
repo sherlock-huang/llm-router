@@ -1,99 +1,92 @@
-/**
- * Task Analyzer 单元测试
- */
-
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { analyzeTask, decomposeTask, type AnalysisResult } from '../src/tasks/task_analyzer.js'
 
 describe('TaskAnalyzer', () => {
   describe('analyzeTask()', () => {
-    it('should detect code tasks with language hint', () => {
-      const result = analyzeTask('用Python写一个快速排序')
+    it('detects code tasks with language hints', () => {
+      const result = analyzeTask('Write a Python quicksort function')
       expect(result.taskType).toBe('code')
       expect(result.language).toBe('Python')
     })
 
-    it('should detect JavaScript tasks', () => {
-      const result = analyzeTask('写一个JavaScript函数处理数组')
+    it('detects JavaScript tasks', () => {
+      const result = analyzeTask('Write a JavaScript function to transform an array')
       expect(result.taskType).toBe('code')
       expect(result.language).toBe('JavaScript')
     })
 
-    it('should detect complexity level correctly', () => {
-      const simple = analyzeTask('你好，请问今天日期')
+    it('detects complexity levels', () => {
+      const simple = analyzeTask('Hello')
       expect(simple.complexity).toBe('low')
 
-      const medium = analyzeTask('重构这个类的设计')
+      const medium = analyzeTask('Refactor this class design')
       expect(medium.complexity).toBe('medium')
 
-      const high = analyzeTask('做一个完整的登录注册系统，包含前端和后端')
+      const high = analyzeTask('Build a complete login and registration system with frontend and backend')
       expect(high.complexity).toBe('high')
     })
 
-    it('should flag high complexity tasks as needing decomposition', () => {
-      const result = analyzeTask('做一个完整项目，包含前端React和后端Node.js')
+    it('flags high-complexity tasks for decomposition', () => {
+      const result = analyzeTask('Build a complete project with React frontend and Node.js backend')
       expect(result.needsDecomposition).toBe(true)
     })
 
-    it('should handle non-code tasks', () => {
-      const result = analyzeTask('解释什么是依赖注入')
+    it('handles non-code tasks', () => {
+      const result = analyzeTask('Explain dependency injection')
       expect(result.taskType).toBe('analysis')
       expect(result.language).toBeUndefined()
     })
   })
 
   describe('decomposeTask()', () => {
-    it('should not decompose simple tasks', () => {
-      const analysis = analyzeTask('你好')
-      const result = decomposeTask('你好', analysis)
-
+    it('does not decompose simple tasks', () => {
+      const analysis = analyzeTask('Hello')
+      const result = decomposeTask('Hello', analysis)
       expect(result.needsDecomposition).toBe(false)
       expect(result.subTasks).toHaveLength(0)
     })
 
-    it('should decompose full-stack code tasks', () => {
-      const analysis = analyzeTask('做一个完整用户注册功能，包含前端表单和后端API') as AnalysisResult & { needsDecomposition: true }
+    it('decomposes full-stack code tasks', () => {
+      const analysis = analyzeTask('Build a complete registration feature with frontend forms and backend API') as AnalysisResult & {
+        needsDecomposition: true
+      }
       analysis.needsDecomposition = true
 
-      const result = decomposeTask('做一个完整用户注册功能，包含前端表单和后端API', analysis)
-
+      const result = decomposeTask('Build a complete registration feature with frontend forms and backend API', analysis)
       expect(result.needsDecomposition).toBe(true)
       expect(result.subTasks.length).toBeGreaterThan(0)
     })
 
-    it('should assign correct models to sub-tasks', () => {
+    it('assigns practical models to subtasks', () => {
       const analysis = {
         taskType: 'code' as const,
-        primaryModel: 'gpt-4o',
+        primaryModel: 'ark',
         confidence: 0.9,
         needsDecomposition: true,
-        complexity: 'high' as const
+        complexity: 'high' as const,
       }
 
-      const result = decomposeTask('做一个完整项目', analysis)
-
-      const models = result.subTasks.map(t => t.assignedModel)
-      // Should have variety - claude for analysis/planning, gpt-4o for code
-      expect(models.some(m => m === 'gpt-4o' || m === 'claude')).toBe(true)
+      const result = decomposeTask('Build a complete project', analysis)
+      const models = result.subTasks.map((task) => task.assignedModel)
+      expect(models.some((model) => model === 'ark' || model === 'minimax')).toBe(true)
     })
 
-    it('should set proper dependencies between sub-tasks', () => {
+    it('keeps dependencies pointed at earlier subtasks', () => {
       const analysis = {
         taskType: 'code' as const,
-        primaryModel: 'gpt-4o',
+        primaryModel: 'ark',
         confidence: 0.9,
         needsDecomposition: true,
-        complexity: 'high' as const
+        complexity: 'high' as const,
       }
 
-      const result = decomposeTask('做一个完整项目', analysis)
+      const result = decomposeTask('Build a complete project', analysis)
 
-      // Later tasks should depend on earlier ones
-      for (let i = 1; i < result.subTasks.length; i++) {
+      for (let i = 1; i < result.subTasks.length; i += 1) {
         const current = result.subTasks[i]
         if (current.dependencies.length > 0) {
-          const prevIds = result.subTasks.slice(0, i).map(t => t.id)
-          current.dependencies.forEach(dep => {
+          const prevIds = result.subTasks.slice(0, i).map((task) => task.id)
+          current.dependencies.forEach((dep) => {
             expect(prevIds).toContain(dep)
           })
         }

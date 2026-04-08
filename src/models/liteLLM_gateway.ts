@@ -103,7 +103,7 @@ export async function chatCompletion(request: ChatCompletionRequest): Promise<Ch
 
 async function callOpenAI(config: ModelConfig, request: ChatCompletionRequest, apiKey?: string): Promise<ChatCompletionResponse> {
   if (!apiKey) {
-    throw new Error('OPENAI_API_KEY not set')
+    throw new Error(`API key not set for provider: ${config.provider}`)
   }
 
   const response = await axios.post(
@@ -138,7 +138,7 @@ async function callOpenAI(config: ModelConfig, request: ChatCompletionRequest, a
 
 async function callAnthropic(config: ModelConfig, request: ChatCompletionRequest, apiKey?: string): Promise<ChatCompletionResponse> {
   if (!apiKey) {
-    throw new Error('ANTHROPIC_API_KEY not set')
+    throw new Error(`API key not set for provider: ${config.provider}`)
   }
 
   // Anthropic uses a different message format
@@ -187,7 +187,7 @@ async function callAnthropic(config: ModelConfig, request: ChatCompletionRequest
 
 async function callGoogle(config: ModelConfig, request: ChatCompletionRequest, apiKey?: string): Promise<ChatCompletionResponse> {
   if (!apiKey) {
-    throw new Error('GEMINI_API_KEY not set')
+    throw new Error(`API key not set for provider: ${config.provider}`)
   }
 
   const contents = request.messages.map(m => ({

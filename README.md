@@ -1,252 +1,197 @@
-# MOP - Multi-Model Orchestration Platform
+# llm-router
 
-大模型智能路由聚合平台 - 一个基于任务类型自动选择最合适大模型的智能路由系统。
+An open-source multi-model routing service for developer workflows.
 
-[English](#english) | [中文](#中文)
+`llm-router` sits in front of multiple LLM providers, analyzes the incoming task, and routes the request to a more suitable model. It also exposes an OpenAI-compatible chat endpoint, optional task decomposition, and a lightweight local web console for manual testing.
 
----
+## What It Is Good For
 
-## 🎯 项目简介
+- Routing coding, analysis, summary, and general prompts to different model backends
+- Giving internal tools a single API entry instead of hard-coding one provider everywhere
+- Testing task-based routing logic before building a larger agent platform
+- Comparing rule-based routing with LLM-assisted routing for the same prompt flow
 
-MOP (Multi-Model Orchestration Platform) 是一个智能的大模型路由平台，能够根据用户请求的内容自动分析任务类型，并调度最合适的模型进行处理。
+## Current Stack
 
-### 核心特性
+- Runtime: Node.js + TypeScript + Express
+- Config: `.env` + YAML model config
+- Current provider wiring:
+  - StepFun
+  - Volcengine Ark
+  - MiniMax
 
-- **🎯 智能路由** - 根据任务类型（代码/分析/创意等）自动选择最佳模型
-- **🔄 多模型聚合** - 统一接口调用多个大模型服务
-- **⚡ 任务拆解** - 复杂任务自动分解并行处理
-- **💰 成本优化** - 按需调度，避免大模型小用
-- **📊 消耗统计** - 实时统计各模型 Token 消耗
-- **⭐ 多模型评分** - 支持多模型对比评分
+## Main Capabilities
 
----
+- Task classification and model routing
+- Optional LLM-driven analysis path
+- Optional task decomposition for more complex prompts
+- OpenAI-style `/v1/chat/completions` endpoint
+- `/v1/models`, `/v1/route`, and `/health` endpoints
+- Local web dashboard for quick manual testing
 
-## 🔧 支持的模型
+## Project Status
 
-| 模型 | 提供商 | 特点 | 适用场景 |
-|------|--------|------|----------|
-| **stepfun** | 阶跃星辰 | step-3.5-flash, 256K 上下文 | 通用对话、代码 |
-| **ark** | 字节跳动 | volcengine 豆包代码模型 | 代码任务 |
-| **minimax** | MiniMax | M2.7 高性能 | 分析、创意 |
+This project is a practical developer tool, not a finished cloud platform.
 
----
+What already exists:
 
-## 🚀 快速开始
+- Runnable local API service
+- Provider registry and gateway layer
+- Rule-based router
+- Task analyzer and decomposition flow
+- Local test page
 
-### 环境要求
+What is still evolving:
 
-- Node.js >= 18
-- pnpm (推荐) 或 npm
+- Better routing heuristics
+- Stronger provider abstraction
+- More complete tests
+- Production deployment hardening
 
-### 安装
+## Quick Start
+
+### Requirements
+
+- Node.js 18+
+- npm or pnpm
+
+### Install
 
 ```bash
-# 克隆仓库
 git clone https://github.com/sherlock-huang/llm-router.git
 cd llm-router
-
-# 安装依赖
-pnpm install
-
-# 配置环境变量
-cp .env.example .env
-# 编辑 .env 文件，填入你的 API Key
+npm install
 ```
 
-### 配置 API Key
-
-编辑 `.env` 文件：
-
-```env
-# 阶跃星辰 (stepfun)
-STEP_API_KEY=your_stepfun_api_key_here
-
-# 字节跳动 ark (volcengine)
-ARK_API_KEY=your_ark_api_key_here
-
-# MiniMax
-MINIMAX_API_KEY=your_minimax_api_key_here
-```
-
-### 启动服务
+### Configure Environment Variables
 
 ```bash
-# 开发模式
-pnpm dev
-
-# 生产模式
-pnpm build
-pnpm start
+cp .env.example .env
 ```
 
-服务启动后访问：http://localhost:3044
+Fill in the providers you actually plan to use:
 
----
+```env
+STEP_API_KEY=your_stepfun_api_key_here
+ARK_API_KEY=your_ark_api_key_here
+MINIMAX_API_KEY=your_minimax_api_key_here
+PORT=3044
+ENABLE_DEBUG_ENV=false
+```
 
-## 📡 API 接口
+### Start the Server
 
-### 聊天接口 (自动路由)
+```bash
+npm run dev
+```
+
+Then open:
+
+- App: `http://localhost:3044`
+- Health: `http://localhost:3044/health`
+- Models: `http://localhost:3044/v1/models`
+
+## Example API Calls
+
+### Auto-Routed Chat
 
 ```bash
 curl -X POST http://localhost:3044/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "messages": [{"role": "user", "content": "用Python写一个快速排序函数"}],
-    "model": "auto"
+    "model": "auto",
+    "messages": [
+      { "role": "user", "content": "Write a Python quicksort function" }
+    ]
   }'
 ```
 
-### 查看可用模型
+### List Available Models
 
 ```bash
 curl http://localhost:3044/v1/models
 ```
 
-### 路由调试
+### Inspect Routing Result
 
 ```bash
 curl -X POST http://localhost:3044/v1/route \
   -H "Content-Type: application/json" \
-  -d '{"content": "写一个Python爬虫"}'
+  -d '{
+    "content": "Explain dependency injection and compare it with service locator"
+  }'
 ```
 
----
+## How Routing Works
 
-## 🎨 Web 界面
+Current routing happens in layers:
 
-启动服务后，打开浏览器访问 http://localhost:3044
+1. Parse the incoming prompt
+2. Classify task type
+3. Pick a primary model
+4. Optionally decompose complex tasks
+5. Execute and return a unified response
 
-功能包括：
-- 📝 测试场景选择（代码/分析/创意/复杂）
-- 🎯 模型选择（auto 智能路由 / 指定模型）
-- 📊 Token 消耗统计（今日/本周/本月）
-- ⭐ 多模型评分对比
+There are two routing modes:
 
----
+- Rule-based routing
+- LLM-assisted routing
 
-## 📁 项目结构
+The rule-based path is the current baseline and the easiest one to audit.
 
-```
+## Project Structure
+
+```text
 llm-router/
-├── public/
-│   └── index.html          # Web 测试页面
-├── src/
-│   ├── api/
-│   │   └── server.ts       # API 服务器
-│   ├── config/
-│   │   ├── loader.ts       # 配置加载器
-│   │   └── models.yaml    # 模型配置
-│   ├── models/
-│   │   └── liteLLM_gateway.ts  # 模型网关
-│   ├── router/
-│   │   └── rule_based_router.ts # 规则路由
-│   ├── tasks/
-│   │   ├── task_analyzer.ts     # 任务分析
-│   │   └── llm_task_analyzer.ts  # LLM 任务分析
-│   └── types/
-│       └── index.ts
-├── .env                    # 环境变量 (需创建)
-├── package.json
-└── tsconfig.json
+├─ public/
+│  └─ index.html
+├─ src/
+│  ├─ api/
+│  │  └─ server.ts
+│  ├─ config/
+│  │  ├─ loader.ts
+│  │  └─ models.yaml
+│  ├─ models/
+│  │  └─ liteLLM_gateway.ts
+│  ├─ router/
+│  │  └─ rule_based_router.ts
+│  ├─ synthesizer/
+│  ├─ tasks/
+│  └─ types/
+├─ tests/
+├─ .env.example
+└─ README.md
 ```
 
----
+## Security Notes
 
-## ⚙️ 工作原理
+- No real API keys should ever be committed into this repository.
+- `.env` is intentionally ignored by Git.
+- `.env.example` must only contain placeholders.
+- `/debug/env` is intended for local debugging and should stay disabled in production unless explicitly enabled.
+- Provider status visibility is not the same as secret exposure, but it still reveals infrastructure choices, so treat it carefully.
 
-```
-用户请求
-    ↓
-任务分析 (关键词匹配 / LLM 智能分析)
-    ↓
-路由决策 → 代码任务 → ark / stepfun
-         → 分析任务 → minimax
-         → 创意任务 → minimax
-    ↓
-任务执行 (单模型 / 多模型分解)
-    ↓
-结果聚合 → 返回响应
-```
+## Suggested Next Improvements
 
-### Phase 1: 规则路由
+- Add provider-level integration tests with mocked responses
+- Move routing rules into config instead of hard-coding all logic
+- Add stronger logging and request tracing
+- Add deployment instructions for a small VPS or container runtime
+- Add rate limiting and auth if you plan to expose the API publicly
 
-基于关键词匹配的快速路由：
-- 代码关键词: `代码`, `Python`, `function`, `def ` 等 → ark
-- 分析关键词: `解释`, `分析`, `什么是` 等 → minimax
-
-### Phase 2: LLM 路由 (开发中)
-
-通过 LLM 深度理解用户意图，更加精准地选择模型。
-
----
-
-## 🌐 路由规则
-
-| 任务类型 | 关键词示例 | 路由模型 |
-|---------|-----------|---------|
-| 代码 | Python, JavaScript, function, def, class, import, bug, 算法 | ark |
-| 分析 | 解释, 分析, 为什么, 什么是, 比较, 区别 | minimax |
-| 创意 | 写故事, 写诗, 创意, 文案, 小说 | minimax |
-| 通用 | 其他 | minimax (默认) |
-
----
-
-## 🔌 添加新模型
-
-1. 在 `src/config/models.yaml` 添加模型配置
-2. 在 `src/models/liteLLM_gateway.ts` 添加模型注册
-3. 在 `src/router/rule_based_router.ts` 添加路由规则
-
----
-
-## 📄 License
+## License
 
 MIT
 
----
+## Contributions And Feedback
 
-## 🤝 贡献
+This repository is open for sharing and reference.
 
-欢迎提交 Issue 和 Pull Request！
+- Found an issue? Open an [Issue](https://github.com/sherlock-huang/llm-router/issues)
+- Have an improvement idea? Open a [Pull Request](https://github.com/sherlock-huang/llm-router/pulls)
 
----
+## Related Links
 
-<a name="english"></a>
-
-# MOP - Multi-Model Orchestration Platform (English)
-
-An intelligent LLM routing platform that automatically selects the most suitable model based on task type.
-
-### Features
-
-- **🎯 Smart Routing** - Auto-select best model based on task (code/analysis/creative)
-- **🔄 Multi-Model Aggregation** - Unified API for multiple LLM providers
-- **⚡ Task Decomposition** - Complex tasks auto-decomposed for parallel processing
-- **💰 Cost Optimization** - Dispatch on-demand, avoid overusing expensive models
-- **📊 Usage Statistics** - Real-time Token consumption tracking
-- **⭐ Multi-Model Scoring** - Compare and score responses across models
-
-### Quick Start
-
-```bash
-git clone https://github.com/sherlock-huang/llm-router.git
-cd llm-router
-pnpm install
-cp .env.example .env
-# Edit .env with your API keys
-pnpm dev
-```
-
-Visit http://localhost:3044 for the web interface.
-
-### API
-
-```bash
-# Chat with auto-routing
-curl -X POST http://localhost:3044/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{"messages": [{"role": "user", "content": "Write a Python quicksort function"}], "model": "auto"}'
-
-# List models
-curl http://localhost:3044/v1/models
-```
+- Main site: https://kunpeng-ai.com
+- GitHub org: https://github.com/kunpeng-ai-research
+- OpenClaw official site: https://openclaw.ai
