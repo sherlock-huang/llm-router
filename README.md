@@ -64,7 +64,7 @@ English version is provided below. Chinese is the primary version of this README
 #### 安装
 
 ```bash
-git clone https://github.com/sherlock-huang/llm-router.git
+git clone https://github.com/kunpeng-ai-lab/llm-router.git
 cd llm-router
 npm install
 ```
@@ -189,8 +189,8 @@ llm-router/
 
 欢迎分享、引用与改进。
 
-- 发现问题：欢迎提 [Issue](https://github.com/sherlock-huang/llm-router/issues)
-- 有改进建议：欢迎提 [Pull Request](https://github.com/sherlock-huang/llm-router/pulls)
+- 发现问题：欢迎提 [Issue](https://github.com/kunpeng-ai-lab/llm-router/issues)
+- 有改进建议：欢迎提 [Pull Request](https://github.com/kunpeng-ai-lab/llm-router/pulls)
 
 ### 相关链接
 
@@ -268,7 +268,7 @@ What is still evolving:
 #### Install
 
 ```bash
-git clone https://github.com/sherlock-huang/llm-router.git
+git clone https://github.com/kunpeng-ai-lab/llm-router.git
 cd llm-router
 npm install
 ```
@@ -391,8 +391,8 @@ llm-router/
 
 ### Contributions And Feedback
 
-- Found an issue? Open an [Issue](https://github.com/sherlock-huang/llm-router/issues)
-- Have an improvement idea? Open a [Pull Request](https://github.com/sherlock-huang/llm-router/pulls)
+- Found an issue? Open an [Issue](https://github.com/kunpeng-ai-lab/llm-router/issues)
+- Have an improvement idea? Open a [Pull Request](https://github.com/kunpeng-ai-lab/llm-router/pulls)
 
 ### Related Links
 
